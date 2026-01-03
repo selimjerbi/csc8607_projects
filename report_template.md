@@ -1,82 +1,122 @@
 # Rapport de projet — CSC8607 : Introduction au Deep Learning
 
-> **Consignes générales**
-> - Tenez-vous au **format** et à l’**ordre** des sections ci-dessous.
-> - Intégrez des **captures d’écran TensorBoard** lisibles (loss, métriques, LR finder, comparaisons).
-> - Les chemins et noms de fichiers **doivent** correspondre à la structure du dépôt modèle (ex. `runs/`, `artifacts/best.ckpt`, `configs/config.yaml`).
-> - Répondez aux questions **numérotées** (D1–D11, M0–M9, etc.) directement dans les sections prévues.
-
 ---
 
 ## 0) Informations générales
 
-- **Étudiant·e** : _Nom, Prénom_
-- **Projet** : _Intitulé (dataset × modèle)_
-- **Dépôt Git** : _URL publique_
-- **Environnement** : `python == ...`, `torch == ...`, `cuda == ...`  
+- **Étudiant·e** : Jerbi Salim  
+- **Projet** : Classification d’images CIFAR-100 avec un ResNet personnalisé  
+- **Dépôt Git** : https://github.com/selimjerbi/csc8607_projects
+- **Environnement** :
+  - python == 3.12w
+  - torch == 2.x
+  - torchvision == 0.17+
+  - cuda == (GPU TSP via SLURM)
+
 - **Commandes utilisées** :
-  - Entraînement : `python -m src.train --config configs/config.yaml`
-  - LR finder : `python -m src.lr_finder --config configs/config.yaml`
-  - Grid search : `python -m src.grid_search --config configs/config.yaml`
-  - Évaluation : `python -m src.evaluate --config configs/config.yaml --checkpoint artifacts/best.ckpt`
+  - Entraînement :
+    ```bash
+    python -m src.train --config configs/config.yaml
+    ```
+  - LR finder :
+    ```bash
+    python -m src.lr_finder --config configs/config.yaml
+    ```
+  - Grid search :
+    ```bash
+    python -m src.grid_search --config configs/config.yaml
+    ```
+  - Évaluation :
+    ```bash
+    python -m src.evaluate --config configs/config.yaml --checkpoint artifacts/best.ckpt
+    ```
 
 ---
 
 ## 1) Données
 
 ### 1.1 Description du dataset
-- **Source** (lien) :
-- **Type d’entrée** (image / texte / audio / séries) :
-- **Tâche** (multiclasses, multi-label, régression) :
-- **Dimensions d’entrée attendues** (`meta["input_shape"]`) :
-- **Nombre de classes** (`meta["num_classes"]`) :
 
-**D1.** Quel dataset utilisez-vous ? D’où provient-il et quel est son format (dimensions, type d’entrée) ?
+- **Dataset** : CIFAR-100  
+- **Source** : `torchvision.datasets.CIFAR100`  
+- **Type d’entrée** : Images couleur  
+- **Tâche** : Classification multiclasse  
+- **Dimensions d’entrée attendues** : `(3, 32, 32)`  
+- **Nombre de classes** : `100`
+
+**D1.**  
+Le dataset CIFAR-100 est composé de 60 000 images couleur de taille 32×32 réparties en 100 classes. Chaque image appartient à une seule classe, ce qui correspond à une tâche de classification multiclasse standard.
+
+---
 
 ### 1.2 Splits et statistiques
 
-| Split | #Exemples | Particularités (déséquilibre, longueur moyenne, etc.) |
-|------:|----------:|--------------------------------------------------------|
-| Train |           |                                                        |
-| Val   |           |                                                        |
-| Test  |           |                                                        |
+| Split | #Exemples | Particularités |
+|------:|----------:|---------------|
+| Train | 45 000 | Classes équilibrées |
+| Val   | 5 000  | Créé à partir du train |
+| Test  | 10 000 | Split officiel |
 
-**D2.** Donnez la taille de chaque split et le nombre de classes.  
-**D3.** Si vous avez créé un split (ex. validation), expliquez **comment** (stratification, ratio, seed).
+**D2.**  
+- Train : 45 000  
+- Validation : 5 000  
+- Test : 10 000  
+- Nombre de classes : 100  
 
-**D4.** Donnez la **distribution des classes** (graphique ou tableau) et commentez en 2–3 lignes l’impact potentiel sur l’entraînement.  
-**D5.** Mentionnez toute particularité détectée (tailles variées, longueurs variables, multi-labels, etc.).
+**D3.**  
+Le split validation est créé à partir du jeu d’entraînement officiel avec un ratio 90/10, en utilisant une seed fixe (42) et une stratification afin de conserver une distribution équilibrée des classes.
 
-### 1.3 Prétraitements (preprocessing) — _appliqués à train/val/test_
+**D4.**  
+Les classes sont uniformément réparties (≈500 images par classe).  
+Cela limite les biais de classe et rend l’accuracy pertinente comme métrique principale.
 
-Listez précisément les opérations et paramètres (valeurs **fixes**) :
+**D5.**  
+Toutes les images ont une taille fixe et un format homogène. Aucune donnée manquante ou multi-label n’est présente.
 
-- Vision : resize = __, center-crop = __, normalize = (mean=__, std=__)…
-- Audio : resample = __ Hz, mel-spectrogram (n_mels=__, n_fft=__, hop_length=__), AmplitudeToDB…
-- NLP : tokenizer = __, vocab = __, max_length = __, padding/truncation = __…
-- Séries : normalisation par canal, fenêtrage = __…
+---
 
-**D6.** Quels **prétraitements** avez-vous appliqués (opérations + **paramètres exacts**) et **pourquoi** ?  
-**D7.** Les prétraitements diffèrent-ils entre train/val/test (ils ne devraient pas, sauf recadrage non aléatoire en val/test) ?
+### 1.3 Prétraitements (train / val / test)
 
-### 1.4 Augmentation de données — _train uniquement_
+- Conversion en tenseur PyTorch
+- Normalisation :
+  - mean = (0.5071, 0.4867, 0.4408)
+  - std  = (0.2675, 0.2565, 0.2761)
 
-- Liste des **augmentations** (opérations + **paramètres** et **probabilités**) :
-  - ex. Flip horizontal p=0.5, RandomResizedCrop scale=__, ratio=__ …
-  - Audio : time/freq masking (taille, nb masques) …
-  - Séries : jitter amplitude=__, scaling=__ …
+**D6.**  
+La normalisation permet de stabiliser l’optimisation en centrant les distributions des pixels. Les statistiques utilisées sont celles recommandées pour CIFAR-100.
 
-**D8.** Quelles **augmentations** avez-vous appliquées (paramètres précis) et **pourquoi** ?  
-**D9.** Les augmentations **conservent-elles les labels** ? Justifiez pour chaque transformation retenue.
+**D7.**  
+Les prétraitements sont identiques pour train, validation et test, à l’exception des augmentations appliquées uniquement au train.
+
+---
+
+### 1.4 Augmentation de données (train uniquement)
+
+- `RandomCrop(32, padding=4)`
+- `RandomHorizontalFlip(p=0.5)`
+
+**D8.**  
+Ces augmentations augmentent la diversité des données et améliorent la généralisation sans modifier la sémantique des images.
+
+**D9.**  
+Oui, les labels sont conservés :
+- Le flip horizontal ne change pas la classe
+- Le crop conserve l’objet principal
+
+---
 
 ### 1.5 Sanity-checks
 
-- **Exemples** après preprocessing/augmentation (insérer 2–3 images/spectrogrammes) :
+**Exemples après preprocessing / augmentation**  
+![alt text](image.png)
 
-> _Insérer ici 2–3 captures illustrant les données après transformation._
+**D10.**  
+Les images transformées restent cohérentes visuellement, sans artefacts majeurs.
 
-**D10.** Montrez 2–3 exemples et commentez brièvement.  
-**D11.** Donnez la **forme exacte** d’un batch train (ex. `(batch, C, H, W)` ou `(batch, seq_len)`), et vérifiez la cohérence avec `meta["input_shape"]`.
+**D11.**  
+Forme d’un batch train :
+(batch_size, 3, 32, 32)
+Cohérent avec `meta["input_shape"]`.
 
 ---
 
@@ -84,174 +124,190 @@ Listez précisément les opérations et paramètres (valeurs **fixes**) :
 
 ### 2.1 Baselines
 
+![alt text](baseline.png)
+
 **M0.**
-- **Classe majoritaire** — Métrique : `_____` → score = `_____`
-- **Prédiction aléatoire uniforme** — Métrique : `_____` → score = `_____`  
-_Commentez en 2 lignes ce que ces chiffres impliquent._
+- Classe majoritaire :
+  - Accuracy VAL = 0.010
+  - Accuracy TEST = 0.010
+- Prédiction aléatoire uniforme :
+  - Accuracy VAL ≈ 0.0116
+  - Accuracy TEST ≈ 0.008
+
+Ces scores proches de 1/100 confirment que la tâche est non triviale.
+
+---
 
 ### 2.2 Architecture implémentée
 
-- **Description couche par couche** (ordre exact, tailles, activations, normalisations, poolings, résiduels, etc.) :
-  - Input → …
-  - Stage 1 (répéter N₁ fois) : …
-  - Stage 2 (répéter N₂ fois) : …
-  - Stage 3 (répéter N₃ fois) : …
-  - Tête (GAP / linéaire) → logits (dimension = nb classes)
+- **Architecture** : ResNet personnalisé
+  - Convolution initiale 3×3 + BatchNorm + ReLU
+  - 3 stages résiduels
+    - Stage 1 : N₁ blocs, C₁ canaux
+    - Stage 2 : N₂ blocs, C₂ canaux
+    - Stage 3 : N₃ blocs, C₃ canaux
+  - Global Average Pooling
+  - Couche linéaire → 100 logits
 
-- **Loss function** :
-  - Multi-classe : CrossEntropyLoss
-  - Multi-label : BCEWithLogitsLoss
-  - (autre, si votre tâche l’impose)
+- **Loss** : CrossEntropyLoss  
+- **Sortie** : `(batch_size, 100)`  
+- **Nombre total de paramètres (config finale)** : ≈ 4.35 M
 
-- **Sortie du modèle** : forme = __(batch_size, num_classes)__ (ou __(batch_size, num_attributes)__)
+**M1.**  
+Les deux hyperparamètres spécifiques au modèle sont :
+- Le nombre de blocs résiduels par stage
+- Le nombre de canaux par stage  
 
-- **Nombre total de paramètres** : `_____`
+Ils contrôlent directement la profondeur et la capacité du réseau.
 
-**M1.** Décrivez l’**architecture** complète et donnez le **nombre total de paramètres**.  
-Expliquez le rôle des **2 hyperparamètres spécifiques au modèle** (ceux imposés par votre sujet).
-
+---
 
 ### 2.3 Perte initiale & premier batch
 
-- **Loss initiale attendue** (multi-classe) ≈ `-log(1/num_classes)` ; exemple 100 classes → ~4.61
-- **Observée sur un batch** : `_____`
-- **Vérification** : backward OK, gradients ≠ 0
+![alt text](perte_initiale.png)
 
-**M2.** Donnez la **loss initiale** observée et dites si elle est cohérente. Indiquez la forme du batch et la forme de sortie du modèle.
+- Loss théorique attendue : `-log(1/100) ≈ 4.61`
+- Loss observée : ≈ 4.6
+- Backpropagation fonctionnelle
+
+**M2.**  
+La loss initiale est cohérente avec la théorie, ce qui valide l’initialisation et la pipeline de données.
 
 ---
 
 ## 3) Overfit « petit échantillon »
 
-- **Sous-ensemble train** : `N = ____` exemples
-- **Hyperparamètres modèle utilisés** (les 2 à régler) : `_____`, `_____`
-- **Optimisation** : LR = `_____`, weight decay = `_____` (0 ou très faible recommandé)
-- **Nombre d’époques** : `_____`
+![alt text](overfit.png)
 
-> _Insérer capture TensorBoard : `train/loss` montrant la descente vers ~0._
+- Sous-ensemble train : 64 images
+- LR = 0.1
+- Weight decay = 1e-4
+- Époques = 50
 
-**M3.** Donnez la **taille du sous-ensemble**, les **hyperparamètres** du modèle utilisés, et la **courbe train/loss** (capture). Expliquez ce qui prouve l’overfit.
+**Capture TensorBoard** : `train/loss` → convergence vers 0
+
+**M3.**  
+La loss d’entraînement chute rapidement vers 0, ce qui prouve que le modèle peut mémoriser un petit ensemble et que l’implémentation est correcte.
 
 ---
 
 ## 4) LR finder
 
-- **Méthode** : balayage LR (log-scale), quelques itérations, log `(lr, loss)`
-- **Fenêtre stable retenue** : `_____ → _____`
-- **Choix pour la suite** :
-  - **LR** = `_____`
-  - **Weight decay** = `_____` (valeurs classiques : 1e-5, 1e-4)
+![alt text](image-1.png)
 
-> _Insérer capture TensorBoard : courbe LR → loss._
+![alt text](image-2.png)
 
-**M4.** Justifiez en 2–3 phrases le choix du **LR** et du **weight decay**.
+- Méthode : balayage logarithmique du learning rate
+- Zone stable observée : `1e-3 → 3e-3`
+- Choix final :
+  - LR = 0.002
+  - Weight decay = 1e-4
 
----
-
-## 5) Mini grid search (rapide)
-
-- **Grilles** :
-  - LR : `{_____ , _____ , _____}`
-  - Weight decay : `{1e-5, 1e-4}`
-  - Hyperparamètre modèle A : `{_____, _____}`
-  - Hyperparamètre modèle B : `{_____, _____}`
-
-- **Durée des runs** : `_____` époques par run (1–5 selon dataset), même seed
-
-| Run (nom explicite) | LR    | WD     | Hyp-A | Hyp-B | Val metric (nom=_____) | Val loss | Notes |
-|---------------------|-------|--------|-------|-------|-------------------------|----------|-------|
-|                     |       |        |       |       |                         |          |       |
-|                     |       |        |       |       |                         |          |       |
-
-> _Insérer capture TensorBoard (onglet HParams/Scalars) ou tableau récapitulatif._
-
-**M5.** Présentez la **meilleure combinaison** (selon validation) et commentez l’effet des **2 hyperparamètres de modèle** sur les courbes (stabilité, vitesse, overfit).
+**M4.**  
+Ce learning rate offre une convergence rapide sans instabilité ni explosion de la loss.
 
 ---
 
-## 6) Entraînement complet (10–20 époques, sans scheduler)
+## 5) Mini grid search
 
-- **Configuration finale** :
-  - LR = `_____`
-  - Weight decay = `_____`
-  - Hyperparamètre modèle A = `_____`
-  - Hyperparamètre modèle B = `_____`
-  - Batch size = `_____`
-  - Époques = `_____` (10–20)
-- **Checkpoint** : `artifacts/best.ckpt` (selon meilleure métrique val)
+![alt text](image-3.png)
 
-> _Insérer captures TensorBoard :_
-> - `train/loss`, `val/loss`
-> - `val/accuracy` **ou** `val/f1` (classification)
+- LR : {0.0005, 0.001, 0.002}
+- Weight decay : {1e-5, 1e-4}
+- Blocs : {[2,2,2], [3,3,3]}
+- Canaux : {[48,96,192], [64,128,256]}
+- Durée : 20 époques
 
-**M6.** Montrez les **courbes train/val** (loss + métrique). Interprétez : sous-apprentissage / sur-apprentissage / stabilité d’entraînement.
+| Configuration | Val accuracy |
+|--------------|-------------|
+| [2,2,2] – [48,96,192] | ~0.22 |
+| [2,2,2] – [64,128,256] | ~0.27 |
+| **[3,3,3] – [64,128,256]** | **~0.53** |
 
----
-
-## 7) Comparaisons de courbes (analyse)
-
-> _Superposez plusieurs runs dans TensorBoard et insérez 2–3 captures :_
-
-- **Variation du LR** (impact au début d’entraînement)
-- **Variation du weight decay** (écart train/val, régularisation)
-- **Variation des 2 hyperparamètres de modèle** (convergence, plateau, surcapacité)
-
-**M7.** Trois **comparaisons** commentées (une phrase chacune) : LR, weight decay, hyperparamètres modèle — ce que vous attendiez vs. ce que vous observez.
+**M5.**  
+La meilleure configuration correspond au modèle le plus profond et le plus large, indiquant que CIFAR-100 nécessite une forte capacité.
 
 ---
 
-## 8) Itération supplémentaire (si temps)
+## 6) Entraînement complet
 
-- **Changement(s)** : `_____` (resserrage de grille, nouvelle valeur d’un hyperparamètre, etc.)
-- **Résultat** : `_____` (val metric, tendances des courbes)
+![alt text](image-4.png)
 
-**M8.** Décrivez cette itération, la motivation et le résultat.
+- LR = 0.002
+- Weight decay = 1e-4
+- Blocs = [3,3,3]
+- Canaux = [64,128,256]
+- Batch size = 128
+- Époques = 20
+- Checkpoint : `artifacts/best.ckpt`
+
+**M6.**  
+Les courbes train/val montrent une convergence stable avec un écart modéré, sans sur-apprentissage sévère.
+
+---
+
+## 7) Comparaisons de courbes
+
+![alt text](image-5.png)
+
+**M7.**
+- Learning rate trop élevé → instabilité
+- Weight decay → meilleure généralisation
+- Augmentation de la capacité → amélioration de la performance
+
+---
+
+## 8) Itération supplémentaire
+
+- Action : augmentation du nombre de blocs
+- Résultat : amélioration significative de la val accuracy
+
+**M8.**  
+Cette itération confirme que les configurations plus simples étaient sous-capacitaires.
 
 ---
 
 ## 9) Évaluation finale (test)
 
-- **Checkpoint évalué** : `artifacts/best.ckpt`
-- **Métriques test** :
-  - Metric principale (nom = `_____`) : `_____`
-  - Metric(s) secondaire(s) : `_____`
+- Checkpoint : `artifacts/best.ckpt`
+- Test accuracy : **0.5301**
+- Test loss : **2.0168**
 
-**M9.** Donnez les **résultats test** et comparez-les à la validation (écart raisonnable ? surapprentissage probable ?).
+**M9.**  
+Les performances test sont proches de la validation, ce qui indique une bonne généralisation.
 
 ---
 
-## 10) Limites, erreurs & bug diary (court)
+## 10) Limites, erreurs & bug diary
 
-- **Limites connues** (données, compute, modèle) :
-- **Erreurs rencontrées** (shape mismatch, divergence, NaN…) et **solutions** :
-- **Idées « si plus de temps/compute »** (une phrase) :
+- **Limites** :
+  - Temps de calcul limité
+  - Pas de scheduler de learning rate
+- **Erreurs rencontrées** :
+  - Learning rate trop élevé initialement
+  - Ajustement du nombre de workers DataLoader
+- **Si plus de temps** :
+  - Scheduler cosine
+  - MixUp / CutMix
 
 ---
 
 ## 11) Reproductibilité
 
-- **Seed** : `_____`
-- **Config utilisée** : joindre un extrait de `configs/config.yaml` (sections pertinentes)
-- **Commandes exactes** :
+- Seed : 42
+- Config : `configs/config.yaml`
 
 ```bash
-# Exemple (remplacer par vos commandes effectives)
-python -m src.train --config configs/config.yaml --max_epochs 15
+python -m src.train --config configs/config.yaml --max_epochs 20
 python -m src.evaluate --config configs/config.yaml --checkpoint artifacts/best.ckpt
-````
-
-* **Artifacts requis présents** :
-
-  * [ ] `runs/` (runs utiles uniquement)
-  * [ ] `artifacts/best.ckpt`
-  * [ ] `configs/config.yaml` aligné avec la meilleure config
-
----
 
 ## 12) Références (courtes)
+- **PyTorch Documentation** — Modules utilisés : `Conv2d`, `BatchNorm2d`, `ReLU`, `Linear`, `CrossEntropyLoss`, `AdaptiveAvgPool2d`.  
+  https://pytorch.org/docs/stable/nn.html
 
-* PyTorch docs des modules utilisés (Conv2d, BatchNorm, ReLU, LSTM/GRU, transforms, etc.).
-* Lien dataset officiel (et/ou HuggingFace/torchvision/torchaudio).
-* Toute ressource externe substantielle (une ligne par référence).
+- **Torchvision Documentation** — Dataset et transformations (`CIFAR100`, `RandomCrop`, `RandomHorizontalFlip`, `Normalize`).  
+  https://pytorch.org/vision/stable/index.html
 
+- **Dataset CIFAR-100 (officiel)**  
+  https://www.cs.toronto.edu/~kriz/cifar.html
 
