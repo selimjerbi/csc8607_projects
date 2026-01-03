@@ -310,4 +310,3 @@ python -m src.evaluate --config configs/config.yaml --checkpoint artifacts/best.
 
 - **Dataset CIFAR-100 (officiel)**  
   https://www.cs.toronto.edu/~kriz/cifar.html
-
