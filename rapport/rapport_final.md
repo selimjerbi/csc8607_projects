@@ -300,6 +300,7 @@ Les performances test sont proches de la validation, ce qui indique une bonne g�
 ```bash
 python -m src.train --config configs/config.yaml --max_epochs 20
 python -m src.evaluate --config configs/config.yaml --checkpoint artifacts/best.ckpt
+```
 
 ## 12) Références (courtes)
 - **PyTorch Documentation** — Modules utilisés : `Conv2d`, `BatchNorm2d`, `ReLU`, `Linear`, `CrossEntropyLoss`, `AdaptiveAvgPool2d`.  
