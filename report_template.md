@@ -6,7 +6,7 @@
 
 - **Étudiant·e** : Jerbi Salim  
 - **Projet** : Classification d’images CIFAR-100 avec un ResNet personnalisé  
-- **Dépôt Git** : https://github.com/selimjerbi/csc8607_projects
+- **Dépôt Git** : "https://github.com/selimjerbi/csc8607_projects"
 - **Environnement** :
   - python == 3.12w
   - torch == 2.x
