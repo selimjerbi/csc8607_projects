@@ -8,7 +8,7 @@ __pycache__/
 data/
 runs/
 artifacts/
-
+!artifacts/
 !artifacts/best.ckpt
 
 # OS / IDE
